@@ -1,8 +1,19 @@
-//
-//  SettingsView.swift
-//  OneNewThing
-//
-//  Created by Aidan O'Brien on 12/05/2025.
-//
+import SwiftUI
 
-import Foundation
+struct SettingsView: View {
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Notifications")) {
+                    Text("Daily reminder at 9:00 AM")
+                        .foregroundColor(.secondary)
+                }
+                Section(header: Text("Assignments")) {
+                    Text("New task every 7 days")
+                        .foregroundColor(.secondary)
+                }
+            }
+            .navigationTitle("Settings")
+        }
+    }
+}
