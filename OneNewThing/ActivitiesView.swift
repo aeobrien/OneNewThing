@@ -11,48 +11,152 @@ struct SimpleActivitiesView: View {
 
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var assignmentManager: AssignmentManager
+    @State private var hoveredActivity: Activity?
+    @State private var showingCatalog = false
+    @State private var selectedActivityForDetails: Activity?
 
     var body: some View {
-        List {
-            ForEach(activities, id: \.objectID) { act in
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(act.name ?? "")
-                            .strikethrough(act.isCompleted, color: .red)
-                            .foregroundColor(act.isCompleted ? .gray : .primary)
-                        
-                        if let category = act.category?.name {
-                            Text(category)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    if act.isCompleted {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                    }
+        VStack(spacing: 0) {
+            // Custom navigation bar to eliminate spacing issues
+            HStack {
+                Text("Activities")
+                    .font(.pingFangSemibold(size: 17))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Button {
+                    showingCatalog = true
+                } label: {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 18, weight: .medium))
                 }
-                .contentShape(Rectangle())
-                .contextMenu {
-                    if act.isCompleted {
-                        Button(action: { toggleCompletion(activity: act) }) {
-                            Label("Mark as not completed", systemImage: "arrow.uturn.left")
+                .buttonStyle(ScaleButtonStyle())
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+            .background(Color(.systemBackground))
+            .overlay(
+                Rectangle()
+                    .frame(height: 0.5)
+                    .foregroundColor(Color(.systemGray4)),
+                alignment: .bottom
+            )
+            
+            // Custom scrollable content
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(activities, id: \.objectID) { act in
+                        HStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(act.name ?? "")
+                                    .font(.pingFangMedium(size: 17))
+                                    .strikethrough(act.isCompleted, color: .red)
+                                    .foregroundColor(act.isCompleted ? .gray : .primary)
+                                
+                                if let category = act.category?.name {
+                                    Text(category)
+                                        .font(.pingFangLight(size: 13))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            if act.isCompleted {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(Color("AccentColor"))
+                                    .font(.system(size: 22))
+                                    .symbolRenderingMode(.hierarchical)
+                            }
                         }
-                    } else {
-                        Button(action: { toggleCompletion(activity: act) }) {
-                            Label("Mark as completed", systemImage: "checkmark.circle")
+                        .contentShape(Rectangle())
+                        .padding(.vertical, 12)
+                        .padding(.horizontal)
+                        .background(
+                            act.objectID == assignmentManager.currentActivity?.objectID ?
+                            Color("AccentColor").opacity(0.05) : Color(.systemBackground)
+                        )
+                        .overlay(
+                            act.objectID == assignmentManager.currentActivity?.objectID ?
+                            RoundedRectangle(cornerRadius: 0)
+                                .stroke(Color("AccentColor").opacity(0.3), lineWidth: 1)
+                            : nil
+                        )
+                        .onTapGesture {
+                            selectedActivityForDetails = act
                         }
+                        .contextMenu {
+                            if act.isCompleted {
+                                Button(action: { toggleCompletion(activity: act) }) {
+                                    Label("Mark as not completed", systemImage: "arrow.uturn.left")
+                                        .font(.pingFangRegular(size: 15))
+                                }
+                            } else {
+                                Button(action: { toggleCompletion(activity: act) }) {
+                                    Label("Mark as completed", systemImage: "checkmark.circle")
+                                        .font(.pingFangRegular(size: 15))
+                                }
+                            }
+                            
+                            if act.objectID == assignmentManager.currentActivity?.objectID {
+                                Divider()
+                                Text("Current Activity")
+                                    .font(.pingFangMedium(size: 13))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Divider()
+                            .padding(.leading)
                     }
                 }
             }
         }
-        .listStyle(InsetGroupedListStyle())
-        .onAppear {
-            print("📋 SimpleActivitiesView appeared with \(activities.count) activities")
+        .sheet(isPresented: $showingCatalog) {
+            CatalogView()
+                .environment(\.managedObjectContext, viewContext)
         }
+        .sheet(item: $selectedActivityForDetails) { activity in
+            NavigationView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(activity.name ?? "Activity")
+                        .font(.title)
+                        .padding(.horizontal)
+                    
+                    if let category = activity.category?.name {
+                        Text("Category: \(category)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                    }
+                    
+                    if let notes = activity.notes, !notes.isEmpty {
+                        Text("Notes:")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        Text(notes)
+                            .padding(.horizontal)
+                    } else {
+                        Text("No notes available")
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.vertical)
+                .navigationTitle("Activity Details")
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationBarItems(trailing: Button("Done") {
+                    selectedActivityForDetails = nil
+                })
+            }
+        }
+        .accentColor(Color("AccentColor"))
+        .edgesIgnoringSafeArea(.bottom)
     }
     
     private func toggleCompletion(activity: Activity) {
@@ -87,3 +191,4 @@ struct ActivitiesView: View {
         SimpleActivitiesView()
     }
 }
+

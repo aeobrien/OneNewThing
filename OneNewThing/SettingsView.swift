@@ -105,27 +105,39 @@ struct SimpleSettingsView: View {
     
     var body: some View {
         Form {
-            Section(header: Text("Activity Period")) {
+            Section(header: Text("Activity Period").font(.pingFangMedium(size: 14))) {
                 DatePicker(
                     "Period Start Date",
                     selection: $startDate,
                     displayedComponents: [.date]
                 )
                 .datePickerStyle(.compact)
+                .font(.pingFangRegular(size: 16))
                 
                 Stepper(value: $periodDays, in: 1...30) {
                     Text("Activity refresh: \(periodDays) day\(periodDays == 1 ? "" : "s")")
+                        .font(.pingFangRegular(size: 16))
                 }
                 
                 Button("Update Settings") {
                     updateActivityPeriod()
                 }
+                .font(.pingFangMedium(size: 16))
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color("AccentColor"))
+                )
+                .foregroundColor(.white)
                 .padding(.vertical, 8)
+                .buttonStyle(ScaleButtonStyle())
             }
             
-            Section(header: Text("Notifications")) {
+            Section(header: Text("Notifications").font(.pingFangMedium(size: 14))) {
                 Toggle("Enable Notifications", isOn: $notificationsEnabled)
+                    .toggleStyle(SwitchToggleStyle(tint: Color("AccentColor")))
+                    .font(.pingFangRegular(size: 16))
                     .onChange(of: notificationsEnabled) { newValue in
                         UserDefaults.standard.set(newValue, forKey: "notificationsEnabled")
                         scheduleNotifications()
@@ -135,6 +147,7 @@ struct SimpleSettingsView: View {
                     // Notification frequency (every X days)
                     Stepper(value: $notificationFrequency, in: 1...7) {
                         Text("Every \(notificationFrequency) day\(notificationFrequency == 1 ? "" : "s")")
+                            .font(.pingFangRegular(size: 16))
                     }
                     .onChange(of: notificationFrequency) { newValue in
                         UserDefaults.standard.set(newValue, forKey: "notificationFrequency")
@@ -144,20 +157,26 @@ struct SimpleSettingsView: View {
                     // Section title for notification times
                     HStack {
                         Text("Notification Times")
+                            .font(.pingFangMedium(size: 16))
                         Spacer()
                         Button(action: {
                             showingAddTime = true
                         }) {
-                            Image(systemName: "plus.circle")
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(Color("AccentColor"))
+                                .font(.system(size: 18))
                         }
                     }
-                    .padding(.top, 8)
+                    .padding(.top, 12)
+                    .padding(.bottom, 6)
                     
                     // List of current notification times
                     if notificationTimes.isEmpty {
                         Text("No notifications scheduled")
+                            .font(.pingFangLight(size: 15))
                             .foregroundColor(.secondary)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     } else {
                         ForEach(0..<notificationTimes.count, id: \.self) { index in
                             HStack {
@@ -174,6 +193,7 @@ struct SimpleSettingsView: View {
                                     displayedComponents: [.hourAndMinute]
                                 )
                                 .datePickerStyle(.compact)
+                                .font(.pingFangRegular(size: 16))
                                 
                                 if notificationTimes.count > 1 {
                                     Button(action: {
@@ -181,54 +201,64 @@ struct SimpleSettingsView: View {
                                         self.saveNotificationTimes()
                                         self.scheduleNotifications()
                                     }) {
-                                        Image(systemName: "minus.circle")
+                                        Image(systemName: "minus.circle.fill")
                                             .foregroundColor(.red)
+                                            .font(.system(size: 18))
                                     }
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
                     }
                     
                     // Notification summary
                     if !notificationTimes.isEmpty {
                         Text("Notifications will be sent \(notificationTimes.count > 1 ? "at \(notificationTimes.count) different times" : "once") each day, every \(notificationFrequency) day\(notificationFrequency > 1 ? "s" : "").")
-                            .font(.caption)
+                            .font(.pingFangLight(size: 14))
                             .foregroundColor(.secondary)
-                            .padding(.top, 4)
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
                     }
                 }
             }
             
-            Section(header: Text("Debug Info")) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Current Activity: \(assignmentManager.currentActivity?.name ?? "None")")
-                    Text("Completed: \(assignmentManager.taskCompleted ? "Yes" : "No")")
-                    Text("Is Overdue: \(assignmentManager.isOverdue ? "Yes" : "No")")
-                }
-                .font(.caption)
-            }
+
         }
         .navigationTitle("Settings")
+        .accentColor(Color("AccentColor"))
         .sheet(isPresented: $showingAddTime) {
             NavigationView {
-                Form {
+                VStack {
                     DatePicker(
-                        "New Notification Time",
+                        "Select Time",
                         selection: $newNotificationTime,
                         displayedComponents: [.hourAndMinute]
                     )
                     .datePickerStyle(.wheel)
+                    .labelsHidden()
                     .padding()
+                    .frame(maxWidth: .infinity)
+                    
+                    Text("Choose when you'd like to receive notifications")
+                        .font(.pingFangLight(size: 15))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                        .padding(.bottom)
                 }
                 .navigationTitle("Add Notification")
+                .navigationBarTitleDisplayMode(.inline)
                 .navigationBarItems(
                     leading: Button("Cancel") {
                         showingAddTime = false
-                    },
+                    }
+                    .font(.pingFangRegular(size: 16)),
                     trailing: Button("Add") {
                         addNotificationTime()
                         showingAddTime = false
                     }
+                    .font(.pingFangMedium(size: 16))
+                    .foregroundColor(Color("AccentColor"))
                 )
             }
         }
