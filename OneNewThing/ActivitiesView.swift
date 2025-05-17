@@ -27,6 +27,21 @@ struct ActivitiesView: View {
                     .onTapGesture {
                         selectedActivity = act          // show detail sheet
                     }
+                    .contextMenu {
+                        if act.isCompleted {
+                            Button(action: {
+                                markAsUncompleted(activity: act)
+                            }) {
+                                Label("Mark as Uncompleted", systemImage: "arrow.uturn.backward.circle")
+                            }
+                        } else {
+                            Button(action: {
+                                markAsCompleted(activity: act)
+                            }) {
+                                Label("Mark as Completed", systemImage: "checkmark.circle")
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("My Activities")
@@ -51,6 +66,20 @@ struct ActivitiesView: View {
             .sheet(item: $selectedActivity) { act in
                 ActivityDetailView(activity: act)
             }
+        }
+    }
+    
+    private func markAsUncompleted(activity: Activity) {
+        viewContext.perform {
+            activity.isCompleted = false
+            try? viewContext.save()
+        }
+    }
+    
+    private func markAsCompleted(activity: Activity) {
+        viewContext.perform {
+            activity.isCompleted = true
+            try? viewContext.save()
         }
     }
 }

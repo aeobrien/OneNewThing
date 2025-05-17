@@ -2,6 +2,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var assignmentManager: AssignmentManager
+    
     var body: some View {
         TabView {
             // HOME TAB
@@ -32,6 +34,7 @@ struct ContentView: View {
             NavigationStack {
                 SettingsView()
                     .navigationTitle("Settings")
+                    .environmentObject(assignmentManager)
                     .onAppear { print("⚙️ SettingsView appeared") }
             }
             .tabItem { Label("Settings", systemImage: "gear") }

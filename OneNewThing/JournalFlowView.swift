@@ -34,7 +34,7 @@ struct JournalFlowView: View {
         "What challenged you the most — and why?",
         "Did anything shift in your thinking?",
         "What might this experience be trying to teach you?",
-        "What did you learn that you couldn’t have learned another way?",
+        "What did you learn that you couldn't have learned another way?",
         "Did this poke a hole in any assumptions you had?",
         "What did this unlock or unblock?",
         "If this experience had a message just for you, what would it be?",
@@ -44,10 +44,10 @@ struct JournalFlowView: View {
 
     private static let pool4 = [
         "Would you do this again? Why or why not?",
-        "What’s one small thing you might do differently after this?",
+        "What's one small thing you might do differently after this?",
         "Did this open up any new questions or interests?",
-        "What are you curious about now, that you weren’t before?",
-        "Is there a new skill, habit, or idea you’d like to explore from here?",
+        "What are you curious about now, that you weren't before?",
+        "Is there a new skill, habit, or idea you'd like to explore from here?",
         "Could this experience be the start of something?",
         "Do you want to follow this thread further?",
         "What kind of person would do this regularly — and are you becoming that person?",
@@ -106,10 +106,20 @@ struct JournalFlowView: View {
         let entry = JournalEntry(context: viewContext)
         entry.title = activityName
         entry.date  = Date()
-        entry.text  = answers
-            .enumerated()
-            .map { "\($0 + 1). \($1)" }
-            .joined(separator: "\n\n")
+        
+        // Get all questions
+        let questions = [question1, question2, question3, question4]
+        
+        // Format with both questions and answers
+        var journalText = ""
+        for i in 0..<questions.count {
+            // Add question
+            journalText += "Q: \(questions[i])\n"
+            // Add answer (if any)
+            journalText += "A: \(answers[i])\n\n"
+        }
+        
+        entry.text = journalText
         try? viewContext.save()
     }
 }

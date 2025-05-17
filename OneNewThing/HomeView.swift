@@ -14,64 +14,67 @@ struct HomeView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text(assignmentManager.taskCompleted ? "Activity completed! New activity in:" : "This Week’s Activity")
+            Text(assignmentManager.taskCompleted ? "Activity completed! New activity in:" : "This Week's Activity")
                 .font(.headline)
 
-            Text(assignmentManager.currentActivity?.name ?? "Loading…")
-                .font(.title)
-                .multilineTextAlignment(.center)
-                .onTapGesture {
-                    if let act = assignmentManager.currentActivity {
-                        selectedActivity = act
+            if !assignmentManager.taskCompleted {
+                Text(assignmentManager.currentActivity?.name ?? "Loading…")
+                    .font(.title)
+                    .multilineTextAlignment(.center)
+                    .onTapGesture {
+                        if let act = assignmentManager.currentActivity {
+                            selectedActivity = act
+                        }
                     }
+
+                // Dice for alternatives
+                Button {
+                    if !assignmentManager.alternativeOffered {
+                        assignmentManager.offerAlternatives()
+                        showOptions = true
+                    } else {
+                        showLimitAlert = true
+                    }
+                } label: {
+                    Image(systemName: "dice.fill")
+                        .font(.largeTitle)
                 }
+                .actionSheet(isPresented: $showOptions) {
+                    ActionSheet(
+                        title: Text("Choose your activity"),
+                        buttons: assignmentManager.alternativeOptions.map { act in
+                            .default(Text(act.name ?? "")) {
+                                assignmentManager.selectAlternative(act)
+                            }
+                        } + [.cancel()]
+                    )
+                }
+                .alert(isPresented: $showLimitAlert) {
+                    Alert(
+                        title: Text("No more alternatives"),
+                        message: Text("You can only re-roll once per period."),
+                        dismissButton: .default(Text("OK"))
+                    )
+                }
+
+                // Completion button + journal flow
+                LongPressButton(duration: 3) {
+                    assignmentManager.completeTask()
+                    showJournal = true
+                } label: {
+                    Text("I've done this!")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+            }
 
             Text(countdownString())
                 .font(.subheadline)
                 .monospacedDigit()
-
-            // Dice for alternatives
-            Button {
-                if !assignmentManager.alternativeOffered {
-                    assignmentManager.offerAlternatives()
-                    showOptions = true
-                } else {
-                    showLimitAlert = true
-                }
-            } label: {
-                Image(systemName: "dice.fill")
-                    .font(.largeTitle)
-            }
-            .actionSheet(isPresented: $showOptions) {
-                ActionSheet(
-                    title: Text("Choose your activity"),
-                    buttons: assignmentManager.alternativeOptions.map { act in
-                        .default(Text(act.name ?? "")) {
-                            assignmentManager.selectAlternative(act)
-                        }
-                    } + [.cancel()]
-                )
-            }
-            .alert(isPresented: $showLimitAlert) {
-                Alert(
-                    title: Text("No more alternatives"),
-                    message: Text("You can only re-roll once per week."),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
-
-            // Completion button + journal flow
-            LongPressButton(duration: 3) {
-                assignmentManager.completeTask()
-                showJournal = true
-            } label: {
-                Text("I've done this!")
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.accentColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-            }
+            
             // JournalFlow sheet
             .sheet(isPresented: $showJournal) {
                 if let act = assignmentManager.currentActivity {
@@ -87,15 +90,37 @@ struct HomeView: View {
             }
         }
         .padding()
-        .onAppear { updateTime() }
-        .onReceive(timer) { _ in updateTime() }
+        .onAppear { 
+            updateTime()
+            checkActivityStatus()
+        }
+        .onReceive(timer) { _ in 
+            updateTime() 
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            checkActivityStatus()
+        }
+        .onReceive(assignmentManager.objectWillChange) { _ in
+            // Update time when the AssignmentManager changes, like when period is refreshed
+            updateTime()
+        }
     }
 
     // MARK: - Helpers
+    
+    private func checkActivityStatus() {
+        guard let currentActivity = assignmentManager.currentActivity else { return }
+        
+        // Update the taskCompleted state based on the currentActivity's isCompleted property
+        assignmentManager.taskCompleted = currentActivity.isCompleted
+    }
 
     private func updateTime() {
         let last = UserDefaults.standard.object(forKey: "lastAssignmentDate") as? Date ?? .distantPast
-        guard let deadline = Calendar.current.date(byAdding: .day, value: 7, to: last) else { return }
+        let periodDays = UserDefaults.standard.integer(forKey: "activityPeriodDays") > 0 ? 
+            UserDefaults.standard.integer(forKey: "activityPeriodDays") : 7
+        
+        guard let deadline = Calendar.current.date(byAdding: .day, value: periodDays, to: last) else { return }
         timeRemaining = max(0, deadline.timeIntervalSince(Date()))
     }
 

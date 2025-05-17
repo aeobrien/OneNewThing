@@ -9,6 +9,12 @@ class AssignmentManager: ObservableObject {
     @Published var alternativeOffered: Bool = false
     @Published var taskCompleted = false
     private let ctx: NSManagedObjectContext
+    
+    // Get the period days from UserDefaults, defaulting to 7
+    var periodDays: Int {
+        let days = UserDefaults.standard.integer(forKey: "activityPeriodDays")
+        return days > 0 ? days : 7
+    }
 
     init(context: NSManagedObjectContext) {
         ctx = context
@@ -17,7 +23,7 @@ class AssignmentManager: ObservableObject {
 
     func loadCurrent() {
         let last = UserDefaults.standard.object(forKey: "lastAssignmentDate") as? Date ?? .distantPast
-        let next = Calendar.current.date(byAdding: .day, value: 7, to: last)!
+        guard let next = Calendar.current.date(byAdding: .day, value: periodDays, to: last) else { return }
         if Date() >= next {
             assignNew()
         } else {
@@ -42,8 +48,18 @@ class AssignmentManager: ObservableObject {
         if let name = UserDefaults.standard.string(forKey: "currentActivityName") {
             let req: NSFetchRequest<Activity> = Activity.fetchRequest()
             req.predicate = NSPredicate(format: "name == %@", name)
-            currentActivity = (try? ctx.fetch(req))?.first
+            if let activity = (try? ctx.fetch(req))?.first {
+                currentActivity = activity
+                taskCompleted = activity.isCompleted
+            }
         }
+    }
+    
+    /// Refreshes the period timing without changing the current activity
+    func refreshPeriod() {
+        // The start date was updated in UserDefaults by the SettingsView
+        // Just notify observers that a change occurred
+        objectWillChange.send()
     }
 
     /// Offer exactly two random alternatives plus current activity
