@@ -72,6 +72,31 @@ struct SimpleSettingsView: View {
     @State private var periodDays: Int = UserDefaults.standard.integer(forKey: "activityPeriodDays") > 0 ? UserDefaults.standard.integer(forKey: "activityPeriodDays") : 7
     @State private var notificationsEnabled: Bool = UserDefaults.standard.bool(forKey: "notificationsEnabled")
     
+    // Notification settings
+    @State private var notificationFrequency: Int = UserDefaults.standard.integer(forKey: "notificationFrequency") > 0 ? UserDefaults.standard.integer(forKey: "notificationFrequency") : 1
+    
+    // Store array of notification times
+    @State private var notificationTimes: [Date] = {
+        if let savedTimes = UserDefaults.standard.array(forKey: "notificationTimes") as? [Data] {
+            return savedTimes.compactMap { data -> Date? in
+                if let nsDate = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSDate.self, from: data) {
+                    return nsDate as Date
+                }
+                return nil
+            }
+        } else {
+            // Default to 9:00 AM
+            var components = DateComponents()
+            components.hour = 9
+            components.minute = 0
+            return [Calendar.current.date(from: components) ?? Date()]
+        }
+    }()
+    
+    // Show add notification time sheet
+    @State private var showingAddTime = false
+    @State private var newNotificationTime = Date()
+    
     init() {
         // Initialize with the current saved start date or now
         let savedDate = UserDefaults.standard.object(forKey: "lastAssignmentDate") as? Date ?? Date()
@@ -105,6 +130,73 @@ struct SimpleSettingsView: View {
                         UserDefaults.standard.set(newValue, forKey: "notificationsEnabled")
                         scheduleNotifications()
                     }
+                
+                if notificationsEnabled {
+                    // Notification frequency (every X days)
+                    Stepper(value: $notificationFrequency, in: 1...7) {
+                        Text("Every \(notificationFrequency) day\(notificationFrequency == 1 ? "" : "s")")
+                    }
+                    .onChange(of: notificationFrequency) { newValue in
+                        UserDefaults.standard.set(newValue, forKey: "notificationFrequency")
+                        scheduleNotifications()
+                    }
+                    
+                    // Section title for notification times
+                    HStack {
+                        Text("Notification Times")
+                        Spacer()
+                        Button(action: {
+                            showingAddTime = true
+                        }) {
+                            Image(systemName: "plus.circle")
+                        }
+                    }
+                    .padding(.top, 8)
+                    
+                    // List of current notification times
+                    if notificationTimes.isEmpty {
+                        Text("No notifications scheduled")
+                            .foregroundColor(.secondary)
+                            .padding(.vertical, 4)
+                    } else {
+                        ForEach(0..<notificationTimes.count, id: \.self) { index in
+                            HStack {
+                                DatePicker(
+                                    "Time \(index + 1)",
+                                    selection: Binding(
+                                        get: { self.notificationTimes[index] },
+                                        set: { 
+                                            self.notificationTimes[index] = $0
+                                            self.saveNotificationTimes()
+                                            self.scheduleNotifications()
+                                        }
+                                    ),
+                                    displayedComponents: [.hourAndMinute]
+                                )
+                                .datePickerStyle(.compact)
+                                
+                                if notificationTimes.count > 1 {
+                                    Button(action: {
+                                        self.notificationTimes.remove(at: index)
+                                        self.saveNotificationTimes()
+                                        self.scheduleNotifications()
+                                    }) {
+                                        Image(systemName: "minus.circle")
+                                            .foregroundColor(.red)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Notification summary
+                    if !notificationTimes.isEmpty {
+                        Text("Notifications will be sent \(notificationTimes.count > 1 ? "at \(notificationTimes.count) different times" : "once") each day, every \(notificationFrequency) day\(notificationFrequency > 1 ? "s" : "").")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    }
+                }
             }
             
             Section(header: Text("Debug Info")) {
@@ -117,9 +209,56 @@ struct SimpleSettingsView: View {
             }
         }
         .navigationTitle("Settings")
-        .onAppear {
-            print("⚙️ SimpleSettingsView appeared")
+        .sheet(isPresented: $showingAddTime) {
+            NavigationView {
+                Form {
+                    DatePicker(
+                        "New Notification Time",
+                        selection: $newNotificationTime,
+                        displayedComponents: [.hourAndMinute]
+                    )
+                    .datePickerStyle(.wheel)
+                    .padding()
+                }
+                .navigationTitle("Add Notification")
+                .navigationBarItems(
+                    leading: Button("Cancel") {
+                        showingAddTime = false
+                    },
+                    trailing: Button("Add") {
+                        addNotificationTime()
+                        showingAddTime = false
+                    }
+                )
+            }
         }
+        .onAppear {
+            print("⚙️ SimpleSettingsView appeared with \(notificationTimes.count) notification times")
+        }
+    }
+    
+    // Add a new notification time
+    private func addNotificationTime() {
+        notificationTimes.append(newNotificationTime)
+        // Sort times chronologically
+        notificationTimes.sort()
+        saveNotificationTimes()
+        scheduleNotifications()
+    }
+    
+    // Save notification times to UserDefaults
+    private func saveNotificationTimes() {
+        let encodedTimes = notificationTimes.compactMap { time -> Data? in
+            try? NSKeyedArchiver.archivedData(withRootObject: time as NSDate, requiringSecureCoding: false)
+        }
+        UserDefaults.standard.set(encodedTimes, forKey: "notificationTimes")
+    }
+    
+    // Format time to display in a user-friendly way
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
     
     private func updateActivityPeriod() {
@@ -137,8 +276,22 @@ struct SimpleSettingsView: View {
     }
     
     private func scheduleNotifications() {
-        // Will be implemented by updating the app's notification scheduling
-        NotificationCenter.default.post(name: Notification.Name("RescheduleNotifications"), object: nil)
+        // Save all notification settings
+        UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
+        UserDefaults.standard.set(notificationFrequency, forKey: "notificationFrequency")
+        
+        // Post notification to request rescheduling
+        NotificationCenter.default.post(
+            name: Notification.Name("RescheduleNotifications"), 
+            object: nil,
+            userInfo: [
+                "enabled": notificationsEnabled,
+                "frequency": notificationFrequency,
+                "times": notificationTimes
+            ]
+        )
+        
+        print("⚙️ Notification settings updated: enabled=\(notificationsEnabled), frequency=\(notificationFrequency), count=\(notificationTimes.count)")
     }
 }
 

@@ -16,7 +16,7 @@ class NotificationManager {
             forName: Notification.Name("RescheduleNotifications"),
             object: nil,
             queue: .main
-        ) { [weak self] _ in
+        ) { [weak self] notification in
             guard let self = self, let manager = self.assignmentManager else { return }
             self.scheduleAllNotifications(using: manager)
         }
@@ -41,34 +41,64 @@ class NotificationManager {
         
         // Check if notifications are enabled
         let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
-        guard notificationsEnabled else { return }
-        
-        // Get notification settings
-        guard let timeStrings = UserDefaults.standard.stringArray(forKey: "notificationTimes"), !timeStrings.isEmpty else {
-            // If no times saved, schedule the default (9 AM)
-            scheduleDailyReminder(at: "09:00", using: mgr)
-            return
+        guard notificationsEnabled else { 
+            print("📱 Notifications disabled, not scheduling any")
+            return 
         }
         
-        // Get frequency (default to daily)
+        // Get notification frequency (default to daily)
         let frequency = UserDefaults.standard.integer(forKey: "notificationFrequency")
         let dayInterval = frequency > 0 ? frequency : 1
         
-        // Schedule each notification time
-        for timeString in timeStrings {
-            scheduleReminder(at: timeString, dayInterval: dayInterval, using: mgr)
+        // Get notification times
+        var notificationTimes: [Date] = []
+        
+        // Try to load saved notification times
+        if let savedTimes = UserDefaults.standard.array(forKey: "notificationTimes") as? [Data] {
+            notificationTimes = savedTimes.compactMap { data -> Date? in
+                if let nsDate = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSDate.self, from: data) {
+                    return nsDate as Date
+                }
+                return nil
+            }
+        }
+        
+        // If no times are found, use a default 9:00 AM
+        if notificationTimes.isEmpty {
+            var components = DateComponents()
+            components.hour = 9
+            components.minute = 0
+            if let defaultTime = Calendar.current.date(from: components) {
+                notificationTimes = [defaultTime]
+                print("📱 No notification times found, using default (09:00)")
+            }
+        }
+        
+        // Sort times chronologically
+        notificationTimes.sort()
+        
+        // Schedule each notification at its specific time
+        for (index, time) in notificationTimes.enumerated() {
+            let calendar = Calendar.current
+            let hour = calendar.component(.hour, from: time)
+            let minute = calendar.component(.minute, from: time)
+            
+            let timeString = String(format: "%02d:%02d", hour, minute)
+            print("📱 Scheduling notification \(index + 1) of \(notificationTimes.count) at \(timeString) every \(dayInterval) day(s)")
+            
+            scheduleReminder(at: timeString, dayInterval: dayInterval, index: index + 1, using: mgr)
         }
     }
 
     private func scheduleDailyReminder(at timeString: String, using mgr: AssignmentManager) {
-        scheduleReminder(at: timeString, dayInterval: 1, using: mgr)
+        scheduleReminder(at: timeString, dayInterval: 1, index: 1, using: mgr)
     }
     
-    private func scheduleReminder(at timeString: String, dayInterval: Int, using mgr: AssignmentManager) {
+    private func scheduleReminder(at timeString: String, dayInterval: Int, index: Int, using mgr: AssignmentManager) {
         let center = UNUserNotificationCenter.current()
         
         // Create unique identifier for this notification
-        let identifier = "reminder-\(timeString)-\(dayInterval)"
+        let identifier = "reminder-\(timeString)-\(dayInterval)-\(index)"
         
         let content = UNMutableNotificationContent()
         content.title = mgr.taskCompleted ? "Activity completed!" : "Your Activity"
