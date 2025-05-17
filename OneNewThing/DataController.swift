@@ -4,22 +4,31 @@ import CoreData
 
 class DataController: ObservableObject {
     let container: NSPersistentContainer
+    // Shared model instance to ensure we don't create multiple models
+    private static let sharedModel: NSManagedObjectModel = makeModel()
 
     init() {
-        // Build the Core Data stack with an in-code model
-        let model = Self.makeModel()
-        container = NSPersistentContainer(name: "NewExperiencesModel", managedObjectModel: model)
+        print("📊 DataController.init() starting")
+        // Use the shared model instance
+        container = NSPersistentContainer(name: "NewExperiencesModel", managedObjectModel: Self.sharedModel)
+        print("📊 NSPersistentContainer created")
+        
         container.loadPersistentStores { _, error in
             if let error = error {
+                print("📊 ERROR: Core Data failed to load: \(error.localizedDescription)")
                 fatalError("Core Data failed to load: \(error.localizedDescription)")
             }
+            print("📊 Persistent stores loaded successfully")
         }
         container.viewContext.automaticallyMergesChangesFromParent = true
+        print("📊 Starting seedDataIfNeeded()")
         seedDataIfNeeded()
+        print("📊 DataController initialization complete")
     }
 
     /// Constructs the Core Data model entirely in code
     private static func makeModel() -> NSManagedObjectModel {
+        print("📊 Creating NSManagedObjectModel")
         let model = NSManagedObjectModel()
 
         // ExperienceCategory entity
@@ -95,6 +104,7 @@ class DataController: ObservableObject {
         activityEntity.properties.append(relCategory)
 
         model.entities = [categoryEntity, activityEntity, journalEntity]
+        print("📊 NSManagedObjectModel creation complete")
         return model
     }
 
@@ -102,7 +112,18 @@ class DataController: ObservableObject {
     private func seedDataIfNeeded() {
         let ctx = container.viewContext
         let request: NSFetchRequest<ExperienceCategory> = ExperienceCategory.fetchRequest()
-        guard (try? ctx.count(for: request)) == 0 else { return }
+        
+        do {
+            let count = try ctx.count(for: request)
+            print("📊 Found \(count) existing categories")
+            guard count == 0 else { return }
+            
+            print("📊 Seeding initial data")
+            // Continue with seeding...
+        } catch {
+            print("📊 Error checking for existing data: \(error.localizedDescription)")
+            return
+        }
 
         let defaults: [String: [String]] = [
             "🧭 Gently Adventurous / Exploration": [
@@ -183,6 +204,12 @@ class DataController: ObservableObject {
                 activity.category = category
             }
         }
-        try? ctx.save()
+        
+        do {
+            try ctx.save()
+            print("📊 Initial data seeded successfully")
+        } catch {
+            print("📊 Error saving seeded data: \(error.localizedDescription)")
+        }
     }
 }

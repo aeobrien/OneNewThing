@@ -7,6 +7,9 @@ class NotificationManager {
     static let shared = NotificationManager()
     private var observerToken: Any?
     
+    // Store a weak reference to the shared AssignmentManager
+    weak var assignmentManager: AssignmentManager?
+    
     init() {
         // Set up the observer in the NotificationManager
         observerToken = NotificationCenter.default.addObserver(
@@ -14,12 +17,8 @@ class NotificationManager {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            guard let self = self else { return }
-            
-            // Use a new context to avoid any threading issues
-            let dc = DataController()
-            let mgr = AssignmentManager(context: dc.container.viewContext)
-            self.scheduleAllNotifications(using: mgr)
+            guard let self = self, let manager = self.assignmentManager else { return }
+            self.scheduleAllNotifications(using: manager)
         }
     }
     
@@ -139,28 +138,62 @@ class NotificationManager {
     }
 }
 
+// Helper class to initialize and hold our shared resources
+final class AppDependencies: ObservableObject {
+    let dataController: DataController
+    lazy var assignmentManager: AssignmentManager = {
+        print("🔧 Initializing AssignmentManager")
+        let manager = AssignmentManager(context: dataController.container.viewContext)
+        print("🔧 AssignmentManager initialized with activity: \(manager.currentActivity?.name ?? "none")")
+        
+        // Store the shared instance
+        AppDependencies.sharedAssignmentManager = manager
+        
+        return manager
+    }()
+    let notificationManager = NotificationManager.shared
+    
+    // Static reference for access from anywhere in the app (for debugging)
+    static var sharedAssignmentManager: AssignmentManager?
+    
+    init() {
+        print("🔧 AppDependencies initializing")
+        
+        // Initialize DataController
+        dataController = DataController()
+        print("🔧 DataController initialized")
+        
+        // Set up notification manager
+        notificationManager.assignmentManager = assignmentManager
+        notificationManager.requestAuthorization()
+        notificationManager.scheduleAllNotifications(using: assignmentManager)
+        print("🔧 Notification setup complete")
+    }
+}
+
 @main
 struct NewExperiencesApp: App {
-    @StateObject private var dataController: DataController
-    @StateObject private var assignmentManager: AssignmentManager
+    // Use a separate class to initialize dependencies
+    @StateObject private var dependencies = AppDependencies()
     
-    // Use the NotificationManager singleton that handles its own observer
-    private let notificationManager = NotificationManager.shared
-
     init() {
-        let dc = DataController()
-        _dataController    = StateObject(wrappedValue: dc)
-        _assignmentManager = StateObject(wrappedValue: AssignmentManager(context: dc.container.viewContext))
-
-        notificationManager.requestAuthorization()
-        notificationManager.scheduleAllNotifications(using: _assignmentManager.wrappedValue)
+        print("📱 NewExperiencesApp initializing")
     }
 
     var body: some Scene {
-        WindowGroup {
+        let dataContext = dependencies.dataController.container.viewContext
+        let assignmentMgr = dependencies.assignmentManager
+        
+        print("📱 Building Scene")
+        print("📱 Using manager: \(type(of: assignmentMgr))")
+        
+        return WindowGroup {
             ContentView()
-                .environment(\.managedObjectContext, dataController.container.viewContext)
-                .environmentObject(assignmentManager)   // ← make sure this is here once, at the root
+                .environment(\.managedObjectContext, dataContext)
+                .environmentObject(assignmentMgr)
+                .onAppear {
+                    print("📱 ContentView.onAppear")
+                }
         }
     }
 }

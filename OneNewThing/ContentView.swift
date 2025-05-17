@@ -3,41 +3,44 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var assignmentManager: AssignmentManager
+    @Environment(\.managedObjectContext) private var viewContext
     
     var body: some View {
         TabView {
             // HOME TAB
-            NavigationStack {
-                HomeView()
-                    .navigationTitle("Home")
-                    .onAppear { print("📱 HomeView appeared") }
+            NavigationView {
+                SimpleHomeView()
             }
             .tabItem { Label("Home", systemImage: "house") }
-
+            
             // ACTIVITIES TAB
-            NavigationStack {
-                ActivitiesView()
-                    .navigationTitle("My Activities")
-                    .onAppear { print("📋 ActivitiesView appeared") }
+            NavigationView {
+                SimpleActivitiesView()
+                    .navigationTitle("Activities")
+                    .navigationBarTitleDisplayMode(.inline)
             }
-            .tabItem { Label("Activities", systemImage: "checkmark.circle") }
-
+            .tabItem { Label("Activities", systemImage: "list.bullet") }
+            
             // JOURNAL TAB
-            NavigationStack {
-                JournalListView()
+            NavigationView {
+                SimpleJournalListView()
                     .navigationTitle("Journal")
-                    .onAppear { print("📔 JournalListView appeared") }
+                    .navigationBarTitleDisplayMode(.inline)
             }
             .tabItem { Label("Journal", systemImage: "book") }
-
+            
             // SETTINGS TAB
-            NavigationStack {
-                SettingsView()
+            NavigationView {
+                SimpleSettingsView()
                     .navigationTitle("Settings")
-                    .environmentObject(assignmentManager)
-                    .onAppear { print("⚙️ SettingsView appeared") }
+                    .navigationBarTitleDisplayMode(.inline)
             }
             .tabItem { Label("Settings", systemImage: "gear") }
+        }
+        .environmentObject(assignmentManager)
+        .environment(\.managedObjectContext, viewContext)
+        .onAppear {
+            print("📱 TabView appeared with manager: \(type(of: assignmentManager))")
         }
     }
 }
