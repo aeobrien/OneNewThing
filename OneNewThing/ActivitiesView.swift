@@ -12,6 +12,8 @@ struct SimpleActivitiesView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var assignmentManager: AssignmentManager
     @State private var hoveredActivity: Activity?
+    @State private var showJournal = false
+    @State private var completedActivityName: String = ""
 
     var body: some View {
         List {
@@ -83,10 +85,16 @@ struct SimpleActivitiesView: View {
             
             print("📋 SimpleActivitiesView appeared with \(activities.count) activities")
         }
+        .sheet(isPresented: $showJournal) {
+            NavigationView {
+                JournalFlowView(activityName: completedActivityName)
+            }
+        }
     }
     
     private func toggleCompletion(activity: Activity) {
         viewContext.perform {
+            let wasCompleted = activity.isCompleted
             activity.isCompleted.toggle()
             print("Activity \(activity.name ?? "") marked as \(activity.isCompleted ? "completed" : "not completed")")
             
@@ -97,12 +105,21 @@ struct SimpleActivitiesView: View {
                 DispatchQueue.main.async {
                     if activity.isCompleted {
                         assignmentManager.taskCompleted = true
+                        // Trigger journal for current activity
+                        self.completedActivityName = activity.name ?? "Activity"
+                        self.showJournal = true
                     } else {
                         assignmentManager.taskCompleted = false
                     }
                     // Ensure UI updates
                     assignmentManager.objectWillChange.send()
                     print("Updated assignment manager state for current activity")
+                }
+            } else if !wasCompleted && activity.isCompleted {
+                // Non-current activity marked as completed - still show journal
+                DispatchQueue.main.async {
+                    self.completedActivityName = activity.name ?? "Activity"
+                    self.showJournal = true
                 }
             }
             
@@ -113,7 +130,26 @@ struct SimpleActivitiesView: View {
 
 // Keep the original view but update it to use SimpleActivitiesView
 struct ActivitiesView: View {
+    @State private var showCatalog = false
+    
     var body: some View {
-        SimpleActivitiesView()
+        NavigationStack {
+            SimpleActivitiesView()
+                .navigationTitle("Activities")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            showCatalog = true
+                        } label: {
+                            Label("Catalog", systemImage: "folder")
+                                .font(.pingFangMedium(size: 16))
+                        }
+                    }
+                }
+                .sheet(isPresented: $showCatalog) {
+                    CatalogView()
+                }
+        }
     }
 }

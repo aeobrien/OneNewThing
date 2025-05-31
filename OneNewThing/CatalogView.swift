@@ -18,9 +18,14 @@ struct CatalogView: View {
         NavigationStack {
             List {
                 ForEach(categories) { category in
-                    Section(header: Text(category.name ?? "")) {
+                    Section(header: 
+                        Text(category.name ?? "")
+                            .font(.pingFangSemibold(size: 18))
+                            .foregroundColor(.primary)
+                            .textCase(nil)
+                    ) {
                         ForEach(category.activitiesArray, id: \.objectID) { activity in
-                            HStack {
+                            HStack(spacing: 16) {
                                 Toggle(isOn: Binding(
                                     get: { activity.isIncluded },
                                     set: { newValue in
@@ -28,17 +33,34 @@ struct CatalogView: View {
                                         try? viewContext.save()
                                     }
                                 )) {
-                                    Text(activity.name ?? "")
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(activity.name ?? "")
+                                            .font(.pingFangMedium(size: 17))
+                                            .strikethrough(activity.isCompleted, color: .red)
+                                            .foregroundColor(activity.isCompleted ? .gray : .primary)
+                                        
+                                        if activity.isCompleted {
+                                            Text("Completed")
+                                                .font(.pingFangLight(size: 13))
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
                                 }
+                                .toggleStyle(SwitchToggleStyle(tint: Color("AccentColor")))
+                                
                                 Spacer()
+                                
                                 if editMode == .active {
                                     Button(action: {
                                         selectedActivityForEdit = activity
                                     }) {
-                                        Image(systemName: "pencil")
+                                        Image(systemName: "pencil.circle")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(Color("AccentColor"))
                                     }
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
                         .onDelete { indexSet in
                             let items = category.activitiesArray
@@ -50,16 +72,21 @@ struct CatalogView: View {
                     }
                 }
             }
-            .navigationTitle("Catalog")
+            .listStyle(InsetGroupedListStyle())
+            .navigationTitle("Activity Catalog")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     EditButton()
+                        .font(.pingFangMedium(size: 16))
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showingAdd = true
                     } label: {
-                        Image(systemName: "plus")
+                        Label("Add", systemImage: "plus.circle.fill")
+                            .font(.pingFangMedium(size: 16))
+                            .foregroundColor(Color("AccentColor"))
                     }
                 }
             }

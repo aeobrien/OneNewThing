@@ -142,9 +142,22 @@ class AssignmentManager: ObservableObject {
     /// Skip the current activity (when overdue) and get a new one
     func skipOverdueActivity() {
         if let act = currentActivity, isOverdue {
-            // Leave the activity as not completed
-            // Get a new activity but maintain the original time period
-            assignNewMaintainingPeriod()
+            // Calculate how much time we were overdue
+            let now = Date()
+            if let deadline = activityDeadline {
+                let overdueTime = now.timeIntervalSince(deadline)
+                
+                // Set new assignment date to now minus the overdue time
+                // This gives us a full period minus the overdue time
+                let newStartDate = Calendar.current.date(byAdding: .second, value: -Int(overdueTime), to: now) ?? now
+                UserDefaults.standard.set(newStartDate, forKey: "lastAssignmentDate")
+            } else {
+                // Fallback: just set to now if we can't calculate deadline
+                UserDefaults.standard.set(now, forKey: "lastAssignmentDate")
+            }
+            
+            // Now assign a new activity
+            assignNew()
         }
     }
     

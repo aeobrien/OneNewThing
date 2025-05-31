@@ -120,6 +120,24 @@ struct SimpleHomeView: View {
                         .foregroundColor(.red)
                         .monospacedDigit()
                         .padding(.top, 4)
+                    // Complete button for overdue activities
+                    LongPressButton(duration: 3) {
+                        assignmentManager.completeTask()
+                        showJournal = true
+                    } label: {
+                        Text("I've done this!")
+                            .font(.pingFangSemibold(size: 17))
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color("AccentColor"))
+                            )
+                            .foregroundColor(.white)
+                            .shadow(color: Color("AccentColor").opacity(0.3), radius: 5, x: 0, y: 3)
+                    }
+                    .padding(.top, 12)
+                    
                     // Skip button for overdue activities
                     Button {
                         assignmentManager.skipOverdueActivity()
@@ -135,7 +153,7 @@ struct SimpleHomeView: View {
                             .foregroundColor(.primary)
                     }
                     .buttonStyle(ScaleButtonStyle())
-                    .padding(.top, 12)
+                    .padding(.top, 8)
                 } else {
                     Text("No activity assigned")
                         .font(.pingFangLight(size: 18))
