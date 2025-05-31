@@ -11,20 +11,23 @@ struct SimpleActivitiesView: View {
 
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var assignmentManager: AssignmentManager
+    @State private var hoveredActivity: Activity?
 
     var body: some View {
         List {
             ForEach(activities, id: \.objectID) { act in
-                HStack {
-                    VStack(alignment: .leading) {
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(act.name ?? "")
+                            .font(.pingFangMedium(size: 17))
                             .strikethrough(act.isCompleted, color: .red)
                             .foregroundColor(act.isCompleted ? .gray : .primary)
                         
                         if let category = act.category?.name {
                             Text(category)
-                                .font(.caption)
+                                .font(.pingFangLight(size: 13))
                                 .foregroundColor(.secondary)
+                                .lineLimit(1)
                         }
                     }
                     
@@ -32,25 +35,52 @@ struct SimpleActivitiesView: View {
                     
                     if act.isCompleted {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(Color("AccentColor"))
+                            .font(.system(size: 22))
+                            .symbolRenderingMode(.hierarchical)
                     }
                 }
                 .contentShape(Rectangle())
+                .padding(.vertical, 8)
+                .background(
+                    act.objectID == assignmentManager.currentActivity?.objectID ?
+                    Color("AccentColor").opacity(0.05) : Color.clear
+                )
+                .overlay(
+                    act.objectID == assignmentManager.currentActivity?.objectID ?
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color("AccentColor").opacity(0.3), lineWidth: 1)
+                        .padding(.horizontal, -8)
+                    : nil
+                )
                 .contextMenu {
                     if act.isCompleted {
                         Button(action: { toggleCompletion(activity: act) }) {
                             Label("Mark as not completed", systemImage: "arrow.uturn.left")
+                                .font(.pingFangRegular(size: 15))
                         }
                     } else {
                         Button(action: { toggleCompletion(activity: act) }) {
                             Label("Mark as completed", systemImage: "checkmark.circle")
+                                .font(.pingFangRegular(size: 15))
                         }
+                    }
+                    
+                    if act.objectID == assignmentManager.currentActivity?.objectID {
+                        Divider()
+                        Text("Current Activity")
+                            .font(.pingFangMedium(size: 13))
+                            .foregroundColor(.secondary)
                     }
                 }
             }
         }
         .listStyle(InsetGroupedListStyle())
         .onAppear {
+            // Apply custom list style
+            UITableView.appearance().backgroundColor = UIColor.clear
+            UITableView.appearance().separatorStyle = .none
+            
             print("📋 SimpleActivitiesView appeared with \(activities.count) activities")
         }
     }

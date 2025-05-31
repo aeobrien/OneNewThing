@@ -67,68 +67,108 @@ struct SimpleHomeView: View {
                 // Show only the completed message and countdown
                 VStack(spacing: 16) {
                     Text("Activity Completed!")
-                        .font(.title2)
+                        .font(.pingFangSemibold(size: 28))
+                        .foregroundColor(Color("AccentColor"))
                         .multilineTextAlignment(.center)
                         .padding(.top, 40)
                     Text("New activity in:")
-                        .font(.headline)
+                        .font(.pingFangLight(size: 18))
+                        .foregroundColor(.secondary)
                     Text(formatTimeInterval(timeRemaining))
-                        .font(.largeTitle)
+                        .font(.system(size: 36, weight: .light, design: .monospaced))
+                        .foregroundColor(.primary)
                         .monospacedDigit()
                         .padding(.bottom, 40)
+                        .animation(.easeInOut(duration: 0.5), value: timeRemaining)
                 }
+                .padding(.horizontal)
+                .frame(maxWidth: 320)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.primary.opacity(0.05))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
             } else if assignmentManager.isOverdue {
                 // Show overdue UI (including skip button, activity name, etc)
                 Text("Activity Overdue!")
-                    .font(.title2)
+                    .font(.pingFangSemibold(size: 24))
                     .foregroundColor(.red)
                 if let activity = assignmentManager.currentActivity {
                     Text(activity.name ?? "No activity")
-                        .font(.title2)
+                        .font(.pingFangMedium(size: 22))
                         .multilineTextAlignment(.center)
                         .padding()
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(10)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.red.opacity(0.1))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.red.opacity(0.2), lineWidth: 1)
+                        )
                         .onTapGesture {
                             selectedActivity = activity
                         }
                     // Timer display
                     Text("Overdue: \(formatTimeInterval(timeOverdue))")
-                        .font(.subheadline)
+                        .font(.pingFangRegular(size: 16))
                         .foregroundColor(.red)
                         .monospacedDigit()
+                        .padding(.top, 4)
                     // Skip button for overdue activities
                     Button {
                         assignmentManager.skipOverdueActivity()
                     } label: {
                         Text("Skip this activity")
+                            .font(.pingFangMedium(size: 16))
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.gray.opacity(0.3))
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.gray.opacity(0.15))
+                            )
                             .foregroundColor(.primary)
-                            .cornerRadius(8)
                     }
+                    .buttonStyle(ScaleButtonStyle())
+                    .padding(.top, 12)
                 } else {
                     Text("No activity assigned")
+                        .font(.pingFangLight(size: 18))
                         .foregroundColor(.gray)
                 }
             } else {
                 // Show normal UI (dice, countdown, completion button, etc)
                 Text("Current Activity")
-                    .font(.title2)
+                    .font(.pingFangSemibold(size: 24))
+                    .foregroundColor(.primary.opacity(0.8))
                     .onLongPressGesture(minimumDuration: 3) {
                         print("⚙️ Long press detected on Current Activity title")
                         showActivityPicker = true
                     }
                 if let activity = assignmentManager.currentActivity {
                     Text(activity.name ?? "No activity")
-                        .font(.title2)
+                        .font(.pingFangMedium(size: 22))
                         .multilineTextAlignment(.center)
                         .padding()
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(10)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color("AccentColor").opacity(0.1))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color("AccentColor").opacity(0.2), lineWidth: 1)
+                        )
+                        .shadow(color: Color.primary.opacity(0.05), radius: 5, x: 0, y: 2)
                         .onTapGesture {
-                            selectedActivity = activity
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                selectedActivity = activity
+                            }
                         }
                     // Dice/alternative button
                     Button {
@@ -141,18 +181,25 @@ struct SimpleHomeView: View {
                     } label: {
                         HStack {
                             Image(systemName: "dice.fill")
+                                .font(.system(size: 16, weight: .medium))
                             Text("Try an alternative")
+                                .font(.pingFangMedium(size: 16))
                         }
                         .padding()
                         .frame(maxWidth: .infinity)
-                        .background(Color.blue.opacity(0.2))
-                        .cornerRadius(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.primary.opacity(0.05))
+                        )
+                        .foregroundColor(.primary)
                     }
+                    .buttonStyle(ScaleButtonStyle())
+                    .padding(.top, 8)
                     .actionSheet(isPresented: $showOptions) {
                         ActionSheet(
-                            title: Text("Choose your activity"),
+                            title: Text("Choose your activity").font(.pingFangMedium(size: 18)),
                             buttons: assignmentManager.alternativeOptions.map { act in
-                                .default(Text(act.name ?? "")) {
+                                .default(Text(act.name ?? "").font(.pingFangRegular(size: 16))) {
                                     assignmentManager.selectAlternative(act)
                                 }
                             } + [.cancel()]
@@ -160,15 +207,20 @@ struct SimpleHomeView: View {
                     }
                     .alert(isPresented: $showLimitAlert) {
                         Alert(
-                            title: Text("No more alternatives"),
-                            message: Text("You can only re-roll once per period."),
-                            dismissButton: .default(Text("OK"))
+                            title: Text("No more alternatives").font(.pingFangSemibold(size: 18)),
+                            message: Text("You can only re-roll once per period.").font(.pingFangRegular(size: 16)),
+                            dismissButton: .default(Text("OK").font(.pingFangMedium(size: 16)))
                         )
                     }
+                    
                     // Timer display
                     Text("Time remaining: \(formatTimeInterval(timeRemaining))")
-                        .font(.subheadline)
+                        .font(.pingFangRegular(size: 16))
                         .monospacedDigit()
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
+                        .animation(.easeInOut(duration: 0.5), value: timeRemaining)
+                    
                     // Complete button
                     VStack(spacing: 12) {
                         LongPressButton(duration: 3) {
@@ -176,15 +228,21 @@ struct SimpleHomeView: View {
                             showJournal = true
                         } label: {
                             Text("I've done this!")
+                                .font(.pingFangSemibold(size: 17))
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.blue)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color("AccentColor"))
+                                )
                                 .foregroundColor(.white)
-                                .cornerRadius(8)
+                                .shadow(color: Color("AccentColor").opacity(0.3), radius: 5, x: 0, y: 3)
                         }
+                        .padding(.top, 12)
                     }
                 } else {
                     Text("No activity assigned")
+                        .font(.pingFangLight(size: 18))
                         .foregroundColor(.gray)
                 }
             }
@@ -326,5 +384,15 @@ struct HomeView: View {
     var body: some View {
         // Use the simplified version
         SimpleHomeView()
+    }
+}
+
+// Add a custom button style for subtle animations
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Self.Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }

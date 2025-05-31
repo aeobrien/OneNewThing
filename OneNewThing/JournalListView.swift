@@ -11,31 +11,82 @@ struct SimpleJournalListView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
     var body: some View {
-        List {
+        ZStack {
+            // Background
+            Color.primary.opacity(0.03)
+                .edgesIgnoringSafeArea(.all)
+            
             if entries.isEmpty {
-                Text("No journal entries yet")
-                    .foregroundColor(.gray)
-                    .italic()
-                    .padding()
-            } else {
-                ForEach(entries) { entry in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(entry.title ?? "Untitled")
-                            .font(.headline)
-                        Text(entry.date ?? Date(), style: .date)
-                            .font(.caption)
-                        Text(entry.text ?? "")
-                            .lineLimit(2)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 4)
+                VStack(spacing: 16) {
+                    Image(systemName: "book.closed")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray.opacity(0.5))
+                        .padding(.bottom, 8)
+                    
+                    Text("No journal entries yet")
+                        .font(.pingFangMedium(size: 18))
+                        .foregroundColor(.gray)
+                    
+                    Text("Your reflections will appear here")
+                        .font(.pingFangLight(size: 15))
+                        .foregroundColor(.gray.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
                 }
+            } else {
+                List {
+                    ForEach(entries) { entry in
+                        JournalEntryRow(entry: entry)
+                            .padding(.vertical, 8)
+                    }
+                    .listRowBackground(Color.clear)
+                }
+                .listStyle(PlainListStyle())
             }
         }
-        .listStyle(InsetGroupedListStyle())
         .onAppear {
+            // Apply custom list style
+            UITableView.appearance().backgroundColor = UIColor.clear
+            UITableView.appearance().separatorStyle = .none
+            
             print("📔 SimpleJournalListView appeared with \(entries.count) entries")
         }
+    }
+}
+
+struct JournalEntryRow: View {
+    let entry: JournalEntry
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(entry.title ?? "Untitled")
+                    .font(.pingFangSemibold(size: 18))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text(entry.date ?? Date(), style: .date)
+                    .font(.pingFangLight(size: 14))
+                    .foregroundColor(.secondary)
+            }
+            
+            Text(entry.text ?? "")
+                .font(.pingFangRegular(size: 15))
+                .lineLimit(2)
+                .foregroundColor(.secondary)
+                .padding(.bottom, 4)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.primary.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
     }
 }
 
