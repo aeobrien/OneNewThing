@@ -9,6 +9,7 @@ struct SimpleJournalListView: View {
     private var entries: FetchedResults<JournalEntry>
 
     @Environment(\.managedObjectContext) private var viewContext
+    @State private var selectedEntry: JournalEntry?
 
     var body: some View {
         ZStack {
@@ -37,12 +38,20 @@ struct SimpleJournalListView: View {
                 List {
                     ForEach(entries) { entry in
                         JournalEntryRow(entry: entry)
-                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .onTapGesture {
+                                selectedEntry = entry
+                            }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     }
+                    .onDelete(perform: deleteEntries)
                     .listRowBackground(Color.clear)
                 }
                 .listStyle(PlainListStyle())
             }
+        }
+        .sheet(item: $selectedEntry) { entry in
+            JournalDetailView(entry: entry)
         }
         .onAppear {
             // Apply custom list style
@@ -52,32 +61,49 @@ struct SimpleJournalListView: View {
             print("📔 SimpleJournalListView appeared with \(entries.count) entries")
         }
     }
+    
+    private func deleteEntries(at offsets: IndexSet) {
+        for index in offsets {
+            let entry = entries[index]
+            viewContext.delete(entry)
+        }
+        
+        do {
+            try viewContext.save()
+            print("📔 Deleted \(offsets.count) journal entries")
+        } catch {
+            print("📔 Error deleting journal entries: \(error)")
+        }
+    }
 }
 
 struct JournalEntryRow: View {
-    let entry: JournalEntry
-    
+    @ObservedObject var entry: JournalEntry
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(entry.title ?? "Untitled")
-                    .font(.pingFangSemibold(size: 18))
+            if let activityName = entry.title, !activityName.isEmpty {
+                Text(activityName)
+                    .font(.pingFangSemibold(size: 20))
                     .foregroundColor(.primary)
-                
-                Spacer()
-                
-                Text(entry.date ?? Date(), style: .date)
-                    .font(.pingFangLight(size: 14))
-                    .foregroundColor(.secondary)
+            } else {
+                Text("Untitled Activity")
+                    .font(.pingFangSemibold(size: 20))
+                    .foregroundColor(.primary.opacity(0.6))
             }
-            
+
+            Text(entry.date ?? Date(), style: .date)
+                .font(.pingFangLight(size: 14))
+                .foregroundColor(.secondary)
+
             Text(entry.text ?? "")
                 .font(.pingFangRegular(size: 15))
-                .lineLimit(2)
+                .lineLimit(3)
                 .foregroundColor(.secondary)
                 .padding(.bottom, 4)
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading) // 👈 force full width
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.primary.opacity(0.03))
@@ -89,6 +115,7 @@ struct JournalEntryRow: View {
         .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
     }
 }
+
 
 // Original view now uses the simplified version
 struct JournalListView: View {

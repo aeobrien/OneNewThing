@@ -6,7 +6,6 @@ import Combine
 class AssignmentManager: ObservableObject {
     @Published var currentActivity: Activity?
     @Published var alternativeOptions: [Activity] = []
-    @Published var alternativeOffered: Bool = false
     @Published var taskCompleted = false
     @Published var isOverdue = false
     private let ctx: NSManagedObjectContext
@@ -66,11 +65,17 @@ class AssignmentManager: ObservableObject {
                 currentActivity = pick
                 UserDefaults.standard.set(Date(), forKey: "lastAssignmentDate")
                 UserDefaults.standard.set(pick.name, forKey: "currentActivityName")
-                alternativeOffered = false
                 alternativeOptions = []
                 taskCompleted = false
                 isOverdue = false
+                
+                // Generate and save alternatives for this activity
+                generateAndSaveAlternatives(for: pick, from: all)
+                
                 print("📊 Assigned new activity: \(pick.name ?? "unknown")")
+                
+                // Reschedule notifications to reflect the new activity
+                NotificationCenter.default.post(name: Notification.Name("RescheduleNotifications"), object: nil)
             } else {
                 print("📊 ERROR: No eligible activities available!")
                 // If no eligible activities, try to get any activity that's included
@@ -82,6 +87,14 @@ class AssignmentManager: ObservableObject {
                     currentActivity = fallbackAct
                     UserDefaults.standard.set(Date(), forKey: "lastAssignmentDate")
                     UserDefaults.standard.set(fallbackAct.name, forKey: "currentActivityName")
+                    
+                    // Generate alternatives for fallback activity too
+                    if let allFallback = try? ctx.fetch(fallbackReq) {
+                        generateAndSaveAlternatives(for: fallbackAct, from: allFallback)
+                    }
+                    
+                    // Reschedule notifications for fallback activity
+                    NotificationCenter.default.post(name: Notification.Name("RescheduleNotifications"), object: nil)
                 }
             }
         } catch {
@@ -97,10 +110,15 @@ class AssignmentManager: ObservableObject {
             currentActivity = pick
             // Do NOT update the lastAssignmentDate - this keeps the original timer
             UserDefaults.standard.set(pick.name, forKey: "currentActivityName")
-            alternativeOffered = false
             alternativeOptions = []
             taskCompleted = false
             isOverdue = false
+            
+            // Generate and save alternatives for this activity too
+            generateAndSaveAlternatives(for: pick, from: all)
+            
+            // Reschedule notifications to reflect the new activity
+            NotificationCenter.default.post(name: Notification.Name("RescheduleNotifications"), object: nil)
         }
     }
 
@@ -142,9 +160,33 @@ class AssignmentManager: ObservableObject {
     /// Skip the current activity (when overdue) and get a new one
     func skipOverdueActivity() {
         if let act = currentActivity, isOverdue {
-            // Leave the activity as not completed
-            // Get a new activity but maintain the original time period
-            assignNewMaintainingPeriod()
+            // Calculate how much time we were overdue
+            let now = Date()
+            if let deadline = activityDeadline {
+                let overdueTime = now.timeIntervalSince(deadline)
+                
+                // Set new assignment date to now minus the overdue time
+                // This gives us a full period minus the overdue time
+                let newStartDate = Calendar.current.date(byAdding: .second, value: -Int(overdueTime), to: now) ?? now
+                UserDefaults.standard.set(newStartDate, forKey: "lastAssignmentDate")
+            } else {
+                // Fallback: just set to now if we can't calculate deadline
+                UserDefaults.standard.set(now, forKey: "lastAssignmentDate")
+            }
+            
+            // Now assign a new activity
+            assignNew()
+        }
+    }
+    
+    /// Skip the current activity at any time and get a new one
+    func skipActivity() {
+        if let _ = currentActivity {
+            // Reset the timer to start a new period from now
+            UserDefaults.standard.set(Date(), forKey: "lastAssignmentDate")
+            
+            // Assign a new activity
+            assignNew()
         }
     }
     
@@ -158,24 +200,90 @@ class AssignmentManager: ObservableObject {
         checkOverdueStatus()
     }
 
-    /// Offer exactly two random alternatives plus current activity
-    func offerAlternatives() {
-        guard !alternativeOffered, let current = currentActivity else { return }
-        let req: NSFetchRequest<Activity> = Activity.fetchRequest()
-        req.predicate = NSPredicate(format: "isIncluded == YES AND isCompleted == NO AND name != %@", current.name ?? "")
-        if let all = try? ctx.fetch(req), all.count >= 2 {
-            let two = all.shuffled().prefix(2)
-            alternativeOptions = [current] + two
+    /// Generate and save alternatives for the current activity
+    private func generateAndSaveAlternatives(for activity: Activity, from allActivities: [Activity]) {
+        let otherActivities = allActivities.filter { $0.objectID != activity.objectID }
+        
+        if otherActivities.count >= 3 {
+            let threeAlternatives = otherActivities.shuffled().prefix(3)
+            let alternativeNames = threeAlternatives.map { $0.name ?? "" }
+            
+            // Save the alternative names to UserDefaults
+            UserDefaults.standard.set(alternativeNames, forKey: "currentActivityAlternatives")
+            print("📊 Saved alternatives: \(alternativeNames)")
+        } else if otherActivities.count > 0 {
+            // If we have fewer than 3, use what we have
+            let alternativeNames = otherActivities.map { $0.name ?? "" }
+            UserDefaults.standard.set(alternativeNames, forKey: "currentActivityAlternatives")
+            print("📊 Saved alternatives (fewer than 3): \(alternativeNames)")
         } else {
-            alternativeOptions = [current]
+            UserDefaults.standard.removeObject(forKey: "currentActivityAlternatives")
+            print("📊 Not enough activities for alternatives")
         }
-        alternativeOffered = true
+    }
+    
+    /// Load saved alternatives from UserDefaults
+    private func loadSavedAlternatives() {
+        guard let current = currentActivity else { return }
+        
+        if let alternativeNames = UserDefaults.standard.stringArray(forKey: "currentActivityAlternatives") {
+            var options: [Activity] = []
+            
+            // Fetch the alternative activities by name (excluding current)
+            for name in alternativeNames {
+                let req: NSFetchRequest<Activity> = Activity.fetchRequest()
+                req.predicate = NSPredicate(format: "name == %@ AND isIncluded == YES AND isCompleted == NO", name)
+                if let activity = try? ctx.fetch(req).first {
+                    options.append(activity)
+                }
+            }
+            
+            alternativeOptions = options
+            print("📊 Loaded saved alternatives: \(alternativeNames)")
+        } else {
+            // If no saved alternatives, generate them now
+            let req: NSFetchRequest<Activity> = Activity.fetchRequest()
+            req.predicate = NSPredicate(format: "isIncluded == YES AND isCompleted == NO")
+            if let all = try? ctx.fetch(req) {
+                generateAndSaveAlternatives(for: current, from: all)
+                loadSavedAlternatives() // Recursively load what we just saved
+            }
+        }
+    }
+    
+    /// Offer three random alternatives (excluding current activity)
+    func offerAlternatives() {
+        guard let current = currentActivity else { return }
+        
+        // Generate fresh alternatives each time for unlimited re-rolls
+        let req: NSFetchRequest<Activity> = Activity.fetchRequest()
+        req.predicate = NSPredicate(format: "isIncluded == YES AND isCompleted == NO")
+        if let all = try? ctx.fetch(req) {
+            generateAndSaveAlternatives(for: current, from: all)
+            loadSavedAlternatives()
+        }
     }
 
     /// Select one of the offered activities
     func selectAlternative(_ act: Activity) {
-        currentActivity = act
-        UserDefaults.standard.set(act.name, forKey: "currentActivityName")
+        // Only change if we actually selected a different activity
+        if act.objectID != currentActivity?.objectID {
+            currentActivity = act
+            UserDefaults.standard.set(act.name, forKey: "currentActivityName")
+            taskCompleted = false
+            
+            // Generate new alternatives for the newly selected activity
+            let req: NSFetchRequest<Activity> = Activity.fetchRequest()
+            req.predicate = NSPredicate(format: "isIncluded == YES AND isCompleted == NO")
+            if let all = try? ctx.fetch(req) {
+                generateAndSaveAlternatives(for: act, from: all)
+            }
+            
+            // Reschedule notifications to reflect the new activity
+            NotificationCenter.default.post(name: Notification.Name("RescheduleNotifications"), object: nil)
+        }
+        // Clear the options either way
+        alternativeOptions = []
     }
 
     /// Mark the current task completed
@@ -184,6 +292,9 @@ class AssignmentManager: ObservableObject {
             act.isCompleted = true
             try? ctx.save()
             taskCompleted = true
+            
+            // Reschedule notifications to reflect the new state
+            NotificationCenter.default.post(name: Notification.Name("RescheduleNotifications"), object: nil)
             
             // If overdue, prepare the next activity immediately but maintain the original timer
             if isOverdue {
@@ -202,6 +313,9 @@ class AssignmentManager: ObservableObject {
             try? ctx.save()
             taskCompleted = false
             objectWillChange.send()
+            
+            // Reschedule notifications to reflect the new state
+            NotificationCenter.default.post(name: Notification.Name("RescheduleNotifications"), object: nil)
         }
     }
     
@@ -211,5 +325,20 @@ class AssignmentManager: ObservableObject {
             taskCompleted = act.isCompleted
             objectWillChange.send()
         }
+    }
+    
+    /// Set a specific activity as current while maintaining the period timer
+    func setActivityMaintainingPeriod(_ activity: Activity, alternatives: [Activity]) {
+        currentActivity = activity
+        // Do NOT update the lastAssignmentDate - this keeps the original timer
+        UserDefaults.standard.set(activity.name, forKey: "currentActivityName")
+        alternativeOptions = []
+        taskCompleted = activity.isCompleted
+        
+        // Generate and save alternatives for this activity
+        generateAndSaveAlternatives(for: activity, from: alternatives)
+        
+        // Notify observers of the change
+        objectWillChange.send()
     }
 }

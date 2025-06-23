@@ -38,9 +38,7 @@ struct ContentView: View {
             
             // ACTIVITIES TAB
             NavigationView {
-                SimpleActivitiesView()
-                    .navigationTitle("Activities")
-                    .navigationBarTitleDisplayMode(.inline)
+                ActivitiesView()
             }
             .tabItem {
                 Label("Activities", systemImage: "list.bullet")

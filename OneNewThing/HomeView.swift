@@ -53,7 +53,6 @@ struct SimpleHomeView: View {
     @State private var timeOverdue: TimeInterval = 0
     @State private var showJournal = false
     @State private var showOptions = false
-    @State private var showLimitAlert = false
     @State private var selectedActivity: Activity?
     @State private var lastUpdateTime: Date = Date()
     @State private var showActivityPicker = false
@@ -120,21 +119,56 @@ struct SimpleHomeView: View {
                         .foregroundColor(.red)
                         .monospacedDigit()
                         .padding(.top, 4)
-                    // Skip button for overdue activities
-                    Button {
-                        assignmentManager.skipOverdueActivity()
-                    } label: {
-                        Text("Skip this activity")
-                            .font(.pingFangMedium(size: 16))
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.gray.opacity(0.15))
-                            )
-                            .foregroundColor(.primary)
+                    // Three buttons in one line
+                    HStack(spacing: 12) {
+                        // Dice button (left)
+                        Button {
+                            assignmentManager.offerAlternatives()
+                            showOptions = true
+                        } label: {
+                            Image(systemName: "dice.fill")
+                                .font(.system(size: 20, weight: .medium))
+                                .frame(width: 50, height: 50)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.primary.opacity(0.05))
+                                )
+                                .foregroundColor(.primary)
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                        
+                        // Done button (center)
+                        LongPressButton(duration: 3) {
+                            assignmentManager.completeTask()
+                            showJournal = true
+                        } label: {
+                            Text("Done")
+                                .font(.pingFangSemibold(size: 17))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color("AccentColor"))
+                                )
+                                .foregroundColor(.white)
+                                .shadow(color: Color("AccentColor").opacity(0.3), radius: 5, x: 0, y: 3)
+                        }
+                        
+                        // Skip button (right)
+                        Button {
+                            assignmentManager.skipOverdueActivity()
+                        } label: {
+                            Text("Skip")
+                                .font(.pingFangMedium(size: 16))
+                                .frame(width: 50, height: 50)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.gray.opacity(0.15))
+                                )
+                                .foregroundColor(.primary)
+                        }
+                        .buttonStyle(ScaleButtonStyle())
                     }
-                    .buttonStyle(ScaleButtonStyle())
                     .padding(.top, 12)
                 } else {
                     Text("No activity assigned")
@@ -142,135 +176,104 @@ struct SimpleHomeView: View {
                         .foregroundColor(.gray)
                 }
             } else {
-                // Show normal UI with refined layout
-                ZStack {
-                    // Main content
-                    VStack {
-                        Spacer() // Add spacer to push content to vertical center
-                        
-                        if let activity = assignmentManager.currentActivity {
-                            // Activity name - more prominent and vertically centered
-                            Text(activity.name ?? "No activity")
-                                .font(.pingFangSemibold(size: 32))
-                                .multilineTextAlignment(.center)
-                                .foregroundColor(.primary)
-                                .padding(.horizontal)
-                                .padding(.vertical, 30)
-                                .frame(maxWidth: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color.primary.opacity(0.03))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-                                )
-                                .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
-                                .padding(.horizontal)
-                                .onTapGesture {
-                                    selectedActivity = activity
-                                }
-                                .onLongPressGesture(minimumDuration: 3) {
-                                    print("⚙️ Long press detected on activity name")
-                                    showActivityPicker = true
-                                }
-                            
-                            // Timer display - smaller and outside the tile
-                            Text(formatTimeInterval(timeRemaining))
-                                .font(.pingFangMedium(size: 26))
-                                .foregroundColor(.secondary)
-                                .animation(.easeInOut(duration: 0.5), value: timeRemaining)
-                                .padding(.top, 8)
-                            
-                            Spacer()
-                            
-                            // Complete button - simplified text
-                            LongPressButton(duration: 3) {
-                                assignmentManager.completeTask()
-                                showJournal = true
-                            } label: {
-                                Text("Done it!")
-                                    .font(.pingFangSemibold(size: 20))
-                                    .frame(width: 200)
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color("AccentColor"))
-                                    )
-                                    .foregroundColor(.white)
-                                    .shadow(color: Color("AccentColor").opacity(0.3), radius: 5, x: 0, y: 3)
-                            }
-                            
-                            Spacer()
-                        } else {
-                            Text("No activity assigned")
-                                .font(.pingFangLight(size: 18))
-                                .foregroundColor(.gray)
-                        }
-                        
-                        Spacer() // Add spacer to push content to vertical center
+                // Show normal UI (dice, countdown, completion button, etc)
+                Text("Current Activity")
+                    .font(.pingFangSemibold(size: 24))
+                    .foregroundColor(.primary.opacity(0.8))
+                    .onLongPressGesture(minimumDuration: 3) {
+                        print("⚙️ Long press detected on Current Activity title")
+                        showActivityPicker = true
                     }
+                if let activity = assignmentManager.currentActivity {
+                    Text(activity.name ?? "No activity")
+                        .font(.pingFangMedium(size: 22))
+                        .multilineTextAlignment(.center)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color("AccentColor").opacity(0.1))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color("AccentColor").opacity(0.2), lineWidth: 1)
+                        )
+                        .shadow(color: Color.primary.opacity(0.05), radius: 5, x: 0, y: 2)
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                selectedActivity = activity
+                            }
+                        }
+                    // Timer display
+                    Text("Time remaining: \(formatTimeInterval(timeRemaining))")
+                        .font(.pingFangRegular(size: 16))
+                        .monospacedDigit()
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
+                        .animation(.easeInOut(duration: 0.5), value: timeRemaining)
                     
-                    // Dice button - positioned absolutely in the top right
-                    if let _ = assignmentManager.currentActivity {
-                        VStack {
-                            HStack {
-                                Spacer() // Push button to the right
-                                
-                                Button {
-                                    if !assignmentManager.alternativeOffered {
-                                        assignmentManager.offerAlternatives()
-                                        showOptions = true
-                                    } else {
-                                        showLimitAlert = true
-                                    }
-                                } label: {
-                                    Image(systemName: "dice.fill")
-                                        .font(.system(size: 22, weight: .medium))
-                                        .foregroundColor(.primary.opacity(0.7))
-                                        .frame(width: 44, height: 44)
-                                        .background(
-                                            Circle()
-                                                .fill(Color.primary.opacity(0.05))
-                                        )
-                                        .overlay(
-                                            Circle()
-                                                .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-                                        )
-                                }
-                                .buttonStyle(ScaleButtonStyle())
-                                .padding(.trailing, 16)
-                                .padding(.top, 16)
-                                .actionSheet(isPresented: $showOptions) {
-                                    ActionSheet(
-                                        title: Text("Choose your activity").font(.pingFangMedium(size: 18)),
-                                        buttons: assignmentManager.alternativeOptions.map { act in
-                                            .default(Text(act.name ?? "").font(.pingFangRegular(size: 16))) {
-                                                assignmentManager.selectAlternative(act)
-                                            }
-                                        } + [.cancel()]
-                                    )
-                                }
-                                .alert(isPresented: $showLimitAlert) {
-                                    Alert(
-                                        title: Text("No more alternatives").font(.pingFangSemibold(size: 18)),
-                                        message: Text("You can only re-roll once per period.").font(.pingFangRegular(size: 16)),
-                                        dismissButton: .default(Text("OK").font(.pingFangMedium(size: 16)))
-                                    )
-                                }
-                            }
-                            
-                            Spacer() // Push everything to the top
+                    // Three buttons in one line
+                    HStack(spacing: 12) {
+                        // Dice button (left)
+                        Button {
+                            assignmentManager.offerAlternatives()
+                            showOptions = true
+                        } label: {
+                            Image(systemName: "dice.fill")
+                                .font(.system(size: 20, weight: .medium))
+                                .frame(width: 50, height: 50)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.primary.opacity(0.05))
+                                )
+                                .foregroundColor(.primary)
                         }
+                        .buttonStyle(ScaleButtonStyle())
+                        
+                        // Done button (center)
+                        LongPressButton(duration: 3) {
+                            assignmentManager.completeTask()
+                            showJournal = true
+                        } label: {
+                            Text("Done")
+                                .font(.pingFangSemibold(size: 17))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color("AccentColor"))
+                                )
+                                .foregroundColor(.white)
+                                .shadow(color: Color("AccentColor").opacity(0.3), radius: 5, x: 0, y: 3)
+                        }
+                        
+                        // Skip button (right)
+                        Button {
+                            assignmentManager.skipActivity()
+                        } label: {
+                            Text("Skip")
+                                .font(.pingFangMedium(size: 16))
+                                .frame(width: 50, height: 50)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.gray.opacity(0.15))
+                                )
+                                .foregroundColor(.primary)
+                        }
+                        .buttonStyle(ScaleButtonStyle())
                     }
+                    .padding(.top, 12)
+                } else {
+                    Text("No activity assigned")
+                        .font(.pingFangLight(size: 18))
+                        .foregroundColor(.gray)
                 }
-                .padding(.vertical)
             }
         }
         .padding()
         // Journal entry sheet
         .sheet(isPresented: $showJournal) {
-            NavigationView {
+            NavigationStack {
                 JournalFlowView(activityName: assignmentManager.currentActivity?.name ?? "Activity")
             }
         }
@@ -314,6 +317,17 @@ struct SimpleHomeView: View {
         // Activity picker sheet for testing
         .sheet(isPresented: $showActivityPicker) {
             ActivityPickerView()
+        }
+        // Action sheet for alternative activities
+        .actionSheet(isPresented: $showOptions) {
+            ActionSheet(
+                title: Text("Choose your activity").font(.pingFangMedium(size: 18)),
+                buttons: assignmentManager.alternativeOptions.map { act in
+                    .default(Text(act.name ?? "").font(.pingFangRegular(size: 16))) {
+                        assignmentManager.selectAlternative(act)
+                    }
+                } + [.cancel()]
+            )
         }
         .onAppear {
             print("📱 SimpleHomeView appeared with activity: \(assignmentManager.currentActivity?.name ?? "none")")

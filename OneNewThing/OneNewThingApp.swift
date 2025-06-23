@@ -101,10 +101,34 @@ class NotificationManager {
         let identifier = "reminder-\(timeString)-\(dayInterval)-\(index)"
         
         let content = UNMutableNotificationContent()
-        content.title = mgr.taskCompleted ? "Activity completed!" : "Your Activity"
-        content.body  = mgr.taskCompleted
-            ? "New activity coming soon!"
-            : "Work on: \(mgr.currentActivity?.name ?? "your activity")"
+        
+        // Always get the latest activity state from UserDefaults to ensure accuracy
+        let currentActivityName = UserDefaults.standard.string(forKey: "currentActivityName") ?? "your activity"
+        let isCompleted = mgr.taskCompleted
+        
+        // Check if we're overdue
+        let timeRemaining = mgr.activityDeadline?.timeIntervalSinceNow ?? 0
+        let isOverdue = timeRemaining < 0
+        
+        // Create dynamic content based on current state and time remaining
+        if isCompleted {
+            content.title = "Activity completed! ✅"
+            content.body = "Great job! New activity coming soon."
+        } else if isOverdue {
+            content.title = "⚠️ Activity Overdue!"
+            content.body = "Your activity '\(currentActivityName)' is overdue. Time to complete it!"
+        } else if timeRemaining < 86400 { // Less than 24 hours
+            let hoursRemaining = Int(timeRemaining / 3600)
+            content.title = "⏰ Time Running Out!"
+            content.body = "\(hoursRemaining) hours left to complete: \(currentActivityName)"
+        } else if timeRemaining < 172800 { // Less than 48 hours
+            content.title = "⏳ Activity Reminder"
+            content.body = "Don't forget to work on: \(currentActivityName)"
+        } else {
+            content.title = "Your Activity"
+            content.body = "Work on: \(currentActivityName)"
+        }
+        
         content.sound = .default
         
         // Parse the time string (HH:mm format)

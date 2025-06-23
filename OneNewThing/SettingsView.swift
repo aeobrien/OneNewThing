@@ -55,7 +55,6 @@ struct ActivityPickerView: View {
         UserDefaults.standard.set(activity.name, forKey: "currentActivityName")
         assignmentManager.taskCompleted = false
         assignmentManager.isOverdue = false
-        assignmentManager.alternativeOffered = false
         assignmentManager.alternativeOptions = []
         
         // Reset the timer (keep it at 7 days from now)
@@ -71,6 +70,8 @@ struct SimpleSettingsView: View {
     @State private var startDate: Date
     @State private var periodDays: Int = UserDefaults.standard.integer(forKey: "activityPeriodDays") > 0 ? UserDefaults.standard.integer(forKey: "activityPeriodDays") : 7
     @State private var notificationsEnabled: Bool = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+    @State private var apiKey: String = UserDefaults.standard.string(forKey: "openAIAPIKey") ?? ""
+    @State private var showAPIKey: Bool = false
     
     // Notification settings
     @State private var notificationFrequency: Int = UserDefaults.standard.integer(forKey: "notificationFrequency") > 0 ? UserDefaults.standard.integer(forKey: "notificationFrequency") : 1
@@ -222,7 +223,89 @@ struct SimpleSettingsView: View {
                 }
             }
             
-
+            Section(header: Text("API Configuration").font(.pingFangMedium(size: 14))) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("OpenAI API Key")
+                        .font(.pingFangRegular(size: 14))
+                        .foregroundColor(.secondary)
+                    
+                    HStack {
+                        if showAPIKey {
+                            TextField("Enter API Key", text: $apiKey)
+                                .font(.pingFangRegular(size: 16))
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        } else {
+                            SecureField("Enter API Key", text: $apiKey)
+                                .font(.pingFangRegular(size: 16))
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        }
+                        
+                        Button(action: {
+                            showAPIKey.toggle()
+                        }) {
+                            Image(systemName: showAPIKey ? "eye.slash.fill" : "eye.fill")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 18))
+                        }
+                    }
+                    
+                    Text("Required for voice transcription in journal entries")
+                        .font(.pingFangLight(size: 13))
+                        .foregroundColor(.secondary)
+                    
+                    Button("Save API Key") {
+                        UserDefaults.standard.set(apiKey, forKey: "openAIAPIKey")
+                        // Clear keyboard
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                    .font(.pingFangMedium(size: 16))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(apiKey.isEmpty ? Color.gray.opacity(0.3) : Color("AccentColor"))
+                    )
+                    .foregroundColor(.white)
+                    .disabled(apiKey.isEmpty)
+                    .padding(.top, 8)
+                }
+                .padding(.vertical, 6)
+            }
+            
+            Section(header: Text("Debug Info").font(.pingFangMedium(size: 14))) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Current Activity:")
+                            .font(.pingFangRegular(size: 14))
+                            .foregroundColor(.secondary)
+                        Text(assignmentManager.currentActivity?.name ?? "None")
+                            .font(.pingFangMedium(size: 14))
+                    }
+                    
+                    HStack {
+                        Text("Completed:")
+                            .font(.pingFangRegular(size: 14))
+                            .foregroundColor(.secondary)
+                        Text(assignmentManager.taskCompleted ? "Yes" : "No")
+                            .font(.pingFangMedium(size: 14))
+                            .foregroundColor(assignmentManager.taskCompleted ? .green : .primary)
+                    }
+                    
+                    HStack {
+                        Text("Is Overdue:")
+                            .font(.pingFangRegular(size: 14))
+                            .foregroundColor(.secondary)
+                        Text(assignmentManager.isOverdue ? "Yes" : "No")
+                            .font(.pingFangMedium(size: 14))
+                            .foregroundColor(assignmentManager.isOverdue ? .red : .primary)
+                    }
+                }
+                .padding(.vertical, 6)
+            }
         }
         .navigationTitle("Settings")
         .accentColor(Color("AccentColor"))
